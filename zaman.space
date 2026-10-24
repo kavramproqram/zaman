@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Zaman başlatıcı.
+#   ./zaman.space                 -> uygulamayı çalıştırır (ilk seferde gerekli paketleri kurar)
+#   ./zaman.space --kur           -> yalnızca bağımlılıkları kurar
+#   ./zaman.space --paketle       -> tek dosyalık çalıştırılabilir üretir (build.sh)
+#
+# Paketlenmiş sürüm (dist/zaman) varsa Python gerektirmeden onu çalıştırır.
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV="$DIR/.venv"
+PY="${PYTHON:-python3}"
+
+kur() {
+    if [ ! -x "$VENV/bin/python" ]; then
+        echo "[zaman] Sanal ortam oluşturuluyor..."
+        "$PY" -m venv "$VENV"
+    fi
+    "$VENV/bin/pip" install --quiet --upgrade pip
+    "$VENV/bin/pip" install --quiet -r "$DIR/requirements.txt"
+    echo "[zaman] Bağımlılıklar hazır."
+}
+
+case "${1:-}" in
+    --kur)
+        kur
+        ;;
+    --paketle)
+        exec "$DIR/build.sh"
+        ;;
+    *)
+        if [ -x "$DIR/dist/zaman" ]; then
+            exec "$DIR/dist/zaman" "$@"
+        fi
+        if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -c "import PyQt5" 2>/dev/null; then
+            kur
+        fi
+        exec "$VENV/bin/python" "$DIR/zaman.py" "$@"
+        ;;
+esac
